@@ -294,3 +294,18 @@ def convertDB(row):
     return myrow
 
 
+def exposure_midpoint(obs, field):
+    # Computes the midpoint of the exposure, accounting for the fact that some bands/fields are stacked. 
+    nstack = 1
+    if field.name in ['X3', 'C3']:
+        if obs.band in ['g','r']:
+            nstack = 3
+        elif obs.band == 'i':
+            nstack = 5
+        elif obs.band == 'z':
+            nstack = 11
+    elif field.name in ['E1', 'E2', 'C1', 'C2', 'S1', 'S2', 'X1','X2'] and obs.band=='z':
+        nstack = 2
+    return ephem.date(obs.date + nstack*ephem.second*obs.exptime/2)
+
+
