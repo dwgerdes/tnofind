@@ -308,4 +308,24 @@ def exposure_midpoint(obs, field):
         nstack = 2
     return ephem.date(obs.date + nstack*ephem.second*obs.exptime/2)
 
+def next_opposition(ra, dec, date=ephem.now()):
+    '''Computes the date of next opposition of a given ra, dec relative to the specified date'''
+    sidereal_rate = ephem.degrees(2*np.pi/365.256363)  # radians per day
+    point = ephem.Ecliptic(ephem.Equatorial(ra, dec))
+    sun = ephem.Sun()
+    sun.compute(date)
+    sol = ephem.Ecliptic(ephem.Equatorial(sun.a_ra, sun.a_dec))
+    phase = ephem.degrees(sol.lon-point.lon).norm
+    next_opp = date
+    while ephem.degrees(ephem.degrees('180')-phase)>ephem.degrees('00:00:01'):
+        days_to_opposition = ephem.degrees(ephem.degrees('180')-phase)/sidereal_rate
+        next_opp = ephem.date(next_opp+days_to_opposition)
+        sun.compute(next_opp)
+        sol_opp = ephem.Ecliptic(ephem.Equatorial(sun.a_ra, sun.a_dec))
+        phase = ephem.degrees(sol_opp.lon-point.lon).norm
+    return next_opp
+    
+def previous_opposition(ra, dec, date=ephem.now()):
+    '''Computes the date of previous opposition of a given ra, dec relative to the specified date'''
+    return next_opposition(ra,dec,date=date-365.256363)
 
