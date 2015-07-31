@@ -12,10 +12,9 @@ from ccdBounds import *
 from MPCRecord import MPCRecord
 import easyaccess as ea
 
-sidereal_rate = ephem.degrees(2*np.pi/365.256363)
+sidereal_year = 365.256363
+sidereal_rate = ephem.degrees(2*np.pi/sidereal_year)
 
-# adding 4.944 hours puts the sun at exactly 180 degrees ecliptic longitude
-autumnal_equinox = DateTime(ephem.next_equinox('2014-07-24') + 4.944*ephem.hour)
 
 fields = Catalog('fields.csv', name=str, centerra=float, centerdec=float, opposition=float, visitspath=str, orderedby='name')
 fields.add_property('center', lambda pt: Equatorial(hours(pt.centerra), degrees(pt.centerdec)))
@@ -26,15 +25,19 @@ for field in fields: field.visits.refactor('date', DateTime)
 def _exp_contains(self, ra1, dec1): return DECamField(self.ra, self.dec).contains(ra1, dec1)
 def _exp_ellipse(self): return DECamField(self.ra, self.dec).ellipse()
 
-exposures = Catalog('exposures.csv', expnum=int, date=DateTime, ra=hours, dec=degrees, exptime=float, band=str, tag=str, object=str)
+exposures = Catalog('exposures.csv', expnum=int, date=float, ra=float, dec=float, exptime=float, nite=int, band=str, tag=str, object=str,
+    fwhm_asec=float, t_eff=float, ellipticity=float, skybrightness=float, accepted=str, analyst=str, analyst_comment=str, lastchanged_time=str)
+exposures.refactor('date', lambda date: ephem.date(date))
+exposures.refactor('ra', lambda ra: hours(ra))
+exposures.refactor('dec', lambda dec: degrees(dec))
 exposures.add_function('contains', _exp_contains)
 exposures.add_function('ellipse', _exp_contains)
-expquality = Catalog('exposure_quality.csv',expnum=int,date=DateTime,band=str,object=str,accepted=str,t_eff=float,fwhm_asec=float,ellipticity=float,skybrightness=float)
 
 def get_nite(date):
     '''
     Get a "nite number" of the form yyyymmdd
     from a DateTime or pyEphem date object.
+    NOTE: This is buggy for nites at the beginning of a month. Will return 20131200, e.g., instead of 20131130.
     '''
     stdate = str(date)
     year, month, daytime = stdate.split('/')
@@ -45,16 +48,7 @@ def get_nite(date):
     nite = int(year + month + day)
     return nite if int(hour) >= 12 else nite - 1
 
-exposures_by_nite = exposures.groupby(lambda pt: get_nite(pt.date))
-
-def good_visits(field):
-    goodvisits = Catalog(nite=int,date=float,band=str,t_eff=float,fwhm_asec=float,ellipticity=float,skybrightness=float)
-    for visit in field.visits:
-        exps = [e for e in expquality if get_nite(e.date)==visit.nite and field.name in e.object]
-        good = True
-        for e in exps:
-            if e.accepted == 'False': good = False
-
+exposures_by_nite = exposures.groupby(lambda pt: pt.nite)
         
 
 def snob_query(rock, date, rng):
@@ -307,25 +301,4 @@ def exposure_midpoint(obs, field):
     elif field.name in ['E1', 'E2', 'C1', 'C2', 'S1', 'S2', 'X1','X2'] and obs.band=='z':
         nstack = 2
     return ephem.date(obs.date + nstack*ephem.second*obs.exptime/2)
-
-def next_opposition(ra, dec, date=ephem.now()):
-    '''Computes the date of next opposition of a given ra, dec relative to the specified date'''
-    sidereal_rate = ephem.degrees(2*np.pi/365.256363)  # radians per day
-    point = ephem.Ecliptic(ephem.Equatorial(ra, dec))
-    sun = ephem.Sun()
-    sun.compute(date)
-    sol = ephem.Ecliptic(ephem.Equatorial(sun.a_ra, sun.a_dec))
-    phase = ephem.degrees(sol.lon-point.lon).norm
-    next_opp = date
-    while ephem.degrees(ephem.degrees('180')-phase)>ephem.degrees('00:00:01'):
-        days_to_opposition = ephem.degrees(ephem.degrees('180')-phase)/sidereal_rate
-        next_opp = ephem.date(next_opp+days_to_opposition)
-        sun.compute(next_opp)
-        sol_opp = ephem.Ecliptic(ephem.Equatorial(sun.a_ra, sun.a_dec))
-        phase = ephem.degrees(sol_opp.lon-point.lon).norm
-    return next_opp
-    
-def previous_opposition(ra, dec, date=ephem.now()):
-    '''Computes the date of previous opposition of a given ra, dec relative to the specified date'''
-    return next_opposition(ra,dec,date=date-365.256363)
 
