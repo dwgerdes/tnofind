@@ -6,16 +6,16 @@ from DECamField import DECamField
 
 class DECamExposure(object):
 #
-    def __init__(self, expnum=0, UTobs='2013-01-01 00:00:00', exptime=0, band='r', ra=ephem.degrees(0), dec=ephem.degrees(0), nite=20130101, tag='None', obj='None'):
+    def __init__(self, expnum=0, date=ephem.date('2013-01-01 00:00:00'), exptime=0, band='r', ra=ephem.degrees(0), dec=ephem.degrees(0), nite=20130101, tag='None', obj='None'):
         self.expnum = expnum
-        self.UTobs = ephem.date(UTobs)
+        self.date = date
         self.exptime = exptime
         self.band = band
-        self.ra = ephem.degrees(ra)
-        self.dec = ephem.degrees(dec)
+        self.ra = ra
+        self.dec = dec
         self.tag = tag
         self.obj = obj
-	self.nite = nite
+        self.nite = nite
     
     def contains(self, ra1, dec1):
         # returns True if the point (ra1, dec1) lies inside the field
@@ -26,7 +26,7 @@ class DECamExposure(object):
     
     def dump(self):
         print 'ExpID: \t', self.expnum
-        print 'UTobs: \t', self.UTobs
+        print 'date: \t', self.date
         print 'Exptime: \t', self.exptime
         print 'Band: \t', self.band
         print 'RA: \t', self.ra

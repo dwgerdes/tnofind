@@ -123,7 +123,7 @@ class Catalog(object):
         '''
         Add a property to this Catalog.
         
-        Properties are evaluated lazily and their values are stored for each point.
+        Properties are evaluated lazily and their values are stored for each groupby.
         The property should be specified as a function acting on a Point object. 
         After the property has been added, it will be accessible as an attribute of
         each point having the name specified.
@@ -384,7 +384,7 @@ class Catalog(object):
         string = ''
         for pt in self._points:
             string += str(pt.date)+','+str(pt.ra)+','+str(pt.dec)+','+str(pt.expnum)+','+str(pt.exptime)+','+pt.band+','+str(pt.ccdnum)+','+\
-            str(pt.mag)+',0,0,'+str(pt.snobjid)+'\n'
+            str(pt.mag)+','+str(pt.objid)+'\n'
         return string
     
 class Point(object):
