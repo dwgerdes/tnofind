@@ -70,6 +70,7 @@ def main():
                 ra = [obj1.ra, obj2.ra, obj3.ra]
                 dec=[obj1.dec, obj2.dec, obj3.dec]
                 dates = [exposure_midpoint(obj1, field), exposure_midpoint(obj2, field), exposure_midpoint(obj3, field)]
+                print ra, dec, dates
 #                print zip(ra, dec, dates, [obj1.mag, obj2.mag, obj3.mag])
                 if np.std([obj1.mag, obj2.mag, obj3.mag])<0.3:
                     orbit = Orbit(ra=ra, dec=dec, dates=dates, obscode=[807,807,807],obserr=0.2)

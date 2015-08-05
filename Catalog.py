@@ -383,8 +383,8 @@ class Catalog(object):
     def writes(self, fieldnames = None, writeprops = False, writeconsts = False, *names):
         string = ''
         for pt in self._points:
-            string += str(pt.date)+','+str(pt.ra)+','+str(pt.dec)+','+str(pt.expnum)+','+str(pt.exptime)+','+pt.band+','+str(pt.ccdnum)+','+\
-            str(pt.mag)+','+str(pt.objid)+'\n'
+            string += str(pt.date)+','+str(pt.ra)+','+str(pt.dec)+','+str(pt.expnum)+','+str(pt.exptime)+','+pt.band+','+str(pt.ccd)+','+\
+            str(pt.mag)+','+str(pt.objid)+','+str(pt.ml_score)+'\n'
         return string
     
 class Point(object):
