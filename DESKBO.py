@@ -4,8 +4,8 @@ from __future__ import division
 
 import ephem
 import numpy as np
-from Orbit import Orbit
-from KBO import Catalog, DateTime, hours, degrees, get_nite
+from pyOrbfit.Orbit import Orbit
+from test.KBO import Catalog, DateTime, hours, degrees, get_nite
 import webcolors
 
 GM = 4.*np.pi*np.pi/1.0000378 # solar gravitation, from orbfit
@@ -19,7 +19,7 @@ class DESKBO(object):
         self.field=field
         self.obsfile=obsfile
         self.observations = Catalog(self.obsfile, date=DateTime, ra=hours, dec=degrees, expnum=int, exptime=float, band=str, ccdnum=int, mag=float, \
-                                    ml_score=float, snobjid=int, fwhm=float, t_eff=float, orderedby='date')
+                                    ml_score=float, snobjid=int, orderedby='date')
         self.observations.add_constant('obscode', 807)
         self.observations.add_constant('err', 0.15)
         self.orbit = Orbit(self.observations)
@@ -53,6 +53,7 @@ def DEScands(fields=None):
         {'obsfile':prefix+'cands/QP95/QP95_matches.csv', 'name':'2013 QP95','field':'X1','pltcol':np.array(webcolors.name_to_rgb('magenta'))/255},           # 7
         {'obsfile':prefix+'cands/RB98/RB98.csv', 'name':'2013 RB98','field':'X2','pltcol':np.array(webcolors.name_to_rgb('blue'))/255},              # 8
         {'obsfile':prefix+'cands/RD98/RD98.csv', 'name':'2013 RD98','field':'X1','pltcol':np.array(webcolors.name_to_rgb('deeppink'))/255},          # 9
+        {'obsfile':prefix+'cands/TH159/TH159.csv', 'name':'2013 TH159','field':'X3','pltcol':np.array(webcolors.name_to_rgb('lavender'))/255},         #24
         {'obsfile':prefix+'cands/TV158/TV158_matches.csv', 'name':'2013 TV158','field':'X1','pltcol':np.array(webcolors.name_to_rgb('green'))/255},          # 10
         {'obsfile':prefix+'cands/SE99/SE99.csv', 'name':'2013 SE99','field':'X3','pltcol':np.array(webcolors.name_to_rgb('crimson'))/255},          # 11
         {'obsfile':prefix+'cands/QL441/QL441.csv', 'name':'2014 QL441','field':'X2','pltcol':np.array(webcolors.name_to_rgb('lightslategray'))/255}, # 12
@@ -67,7 +68,10 @@ def DEScands(fields=None):
         {'obsfile':prefix+'cands/RF98/RF98.csv', 'name':'2013 RF98','field':'X3','pltcol':np.array(webcolors.name_to_rgb('khaki'))/255},             # 20
         {'obsfile':prefix+'cands/TU85/TU85.csv', 'name':'2014 TU85','field':'X1','pltcol':np.array(webcolors.name_to_rgb('cornflowerblue'))/255},    # 21
         {'obsfile':prefix+'cands/RG98/RG98.csv', 'name':'2013 RG98','field':'C3','pltcol':np.array(webcolors.name_to_rgb('cornflowerblue'))/255},    # 22
-        {'obsfile':prefix+'cands/YO9/YO9.csv', 'name':'2012 YO9','field':'S1','pltcol':np.array(webcolors.name_to_rgb('limegreen'))/255}         # 23  
+        {'obsfile':prefix+'cands/YO9/YO9.csv', 'name':'2012 YO9','field':'S1','pltcol':np.array(webcolors.name_to_rgb('limegreen'))/255},        # 23
+        {'obsfile':prefix+'cands/VT37/VT37.csv', 'name':'2014 VT37','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumorchid'))/255},    #25
+        {'obsfile':prefix+'cands/E1Y2a/E1Y2a.csv', 'name':'E1Y2a','field':'E1','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #26
+        {'obsfile':prefix+'cands/X3Y1b/X3Y1b.csv', 'name':'X3Y1b','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumpurple'))/255}      #27
         ]
     rocks = [DESKBO(c['obsfile'], name=c['name'], field=c['field'],pltcolor=c['pltcol']) for c in cands]
     if fields is not None:
