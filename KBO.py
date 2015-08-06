@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as np
 import ephem
 from itertools import count
-#from desdb import Connection
 from ephem import hours, degrees, Equatorial, Ecliptic
 from Orbit import Orbit
 from Catalog import Catalog, DateTime, TimeDelta, Point
@@ -18,9 +17,9 @@ sidereal_rate = ephem.degrees(2*np.pi/sidereal_year)
 
 fields = Catalog('fields.csv', name=str, centerra=float, centerdec=float, opposition=float, visitspath=str, orderedby='name')
 fields.add_property('center', lambda pt: Equatorial(hours(pt.centerra), degrees(pt.centerdec)))
-fields.add_property('visits', lambda pt: Catalog(pt.visitspath, nite=int, date=float, dlon=float, dlat=float, vlon=float, vlat=float))
+#fields.add_property('visits', lambda pt: Catalog(pt.visitspath, nite=int, date=float, dlon=float, dlat=float, vlon=float, vlat=float))
 fields.refactor('opposition', DateTime)
-for field in fields: field.visits.refactor('date', DateTime)
+#for field in fields: field.visits.refactor('date', DateTime)
 
 def _exp_contains(self, ra1, dec1): return DECamField(self.ra, self.dec).contains(ra1, dec1)
 def _exp_ellipse(self): return DECamField(self.ra, self.dec).ellipse()
@@ -32,22 +31,6 @@ exposures.refactor('ra', lambda ra: hours(ra))
 exposures.refactor('dec', lambda dec: degrees(dec))
 exposures.add_function('contains', _exp_contains)
 exposures.add_function('ellipse', _exp_contains)
-
-def get_nite(date):
-    '''
-    Get a "nite number" of the form yyyymmdd
-    from a DateTime or pyEphem date object.
-    NOTE: This is buggy for nites at the beginning of a month. Will return 20131200, e.g., instead of 20131130.
-    '''
-    stdate = str(date)
-    year, month, daytime = stdate.split('/')
-    day, time = daytime.split()
-    hour = time.split(':')[0]
-    month = month.zfill(2)
-    day = day.zfill(2)
-    nite = int(year + month + day)
-    return nite if int(hour) >= 12 else nite - 1
-
 exposures_by_nite = exposures.groupby(lambda pt: pt.nite)
         
 
@@ -106,44 +89,6 @@ def field_query(field, band='i'):
     field + "%' and e.band='" + band + "' order by e.date_obs"
     return query
 
-def anomalies(field, date):
-    '''
-    Calculate the shifts in ecliptic coordinates expected for a stationary object in the specified field on the specified date.
-    
-    date should be a DateTime object, pyEphem
-    date, floating-point JD, or compatible string.
-    Results are returned as a pair (dlon, dlat),
-    in arbitrary units. To get appropriately scaled
-    results, multiply by the reciprocal of the object's
-    distance from the sun in AU.
-    '''
-    field = fields[field]
-    date = DateTime(date)
-    omegat = sidereal_rate * (date - field.opposition)
-    lat = Ecliptic(field.center).lat
-    dlon = -np.sin(omegat)/np.cos(lat)
-    dlat = np.cos(omegat)*np.sin(lat)
-    return dlon, dlat
-
-def velocities(field, date):
-    '''
-    Calculate the expected rates of change of ecliptic coordinates expected for a stationary object in the specified field on the specified date.
-    
-    date should be a DateTime object, pyEphem
-    date, floating-point JD, or compatible string.
-    Results are returned as a pair (vlon, vlat),
-    in arbitrary units. To get appropriately scaled
-    results, multiply by the sidereal rate and then
-    by the reciprocal of the object's distance from
-    the sun in AU.
-    '''
-    field = fields[field]
-    date = DateTime(date)
-    omegat = sidereal_rate * (date - field.opposition)
-    lat = Ecliptic(field.center).lat
-    vlon = -np.cos(omegat)/np.cos(lat)
-    vlat = -np.sin(omegat)*np.sin(lat)
-    return vlon, vlat
 
 def toDateTime(ISOdate):
     '''
@@ -215,10 +160,9 @@ def find_exposures(target_ra, target_dec):
     '''
     match = []
     for exp in exposures:
-        if exp.contains(target_ra, target_dec):
-            ccdname, ccdnum = compute_chip(target_ra, target_dec, exp.ra, exp.dec)
-            this_match = {'expnum': exp.expnum, 'ccd': ccdnum, 'date': exp.date, 'band': exp.band}
-            if ccdnum != -99: match.append(this_match)
+        ccdname, ccdnum = compute_chip(target_ra, target_dec, exp.ra, exp.dec)
+        this_match = {'expnum': exp.expnum, 'ccd': ccdnum, 'date': exp.date, 'band': exp.band}
+        if ccdnum != -99: match.append(this_match)
     return match
 
 def find_exposures_by_nite(nite, target_ra, target_dec, snfields = True):
@@ -233,7 +177,7 @@ def find_exposures_by_nite(nite, target_ra, target_dec, snfields = True):
     '''
     match = []
     for exp in exposures_by_nite[nite]:
-        if exp.contains(target_ra, target_dec) and (snfields or not exp.object.startswith('DES supernova hex')):
+        if (snfields or not exp.object.startswith('DES supernova hex')):
             ccdname, ccdnum = compute_chip(target_ra, target_dec, exp.ra, exp.dec)
             this_match = {'expnum': exp.expnum, 'ccd': ccdnum, 'date': exp.date, 'band': exp.band}
             if ccdnum != -99: match.append(this_match)
@@ -244,11 +188,7 @@ def count(start = 0):
     while True:
         i += 1
         yield i
- 
-    
-    #def __init__(self, obsnum='     ', MPprovisional='       ', discovery=' ', note1=' ', 
-    #             note2='C', obsdate=ephem.date('2000/01/01'), ra_obs_J2000=ephem.hours(0), dec_obs_J2000=ephem.degrees(0), 
-    #             mag=99, band='r', observatoryCode='W84', newobject=True):       
+       
 def MPCobservation(point, temp_designation='       ', packed_designation='     '):
     newobject=False
     if packed_designation=='       ': newobject=True
@@ -259,7 +199,8 @@ def MPCobservation(point, temp_designation='       ', packed_designation='     '
     return rec.record
 
 def absolute_magnitude(orbit, apparent_mag, date_obs):
-    # computes the absolute magnitude of an object, given its orbit and apparent magnitude on date_obs
+    ''' computes the absolute magnitude of an object, given its orbit and apparent magnitude on date_obs
+    '''
     body = orbit.ellipticalBody()
     body.compute(date_obs)
     d_BS = body.sun_distance
@@ -291,14 +232,62 @@ def convertDB(row):
 def exposure_midpoint(obs, field):
     # Computes the midpoint of the exposure, accounting for the fact that some bands/fields are stacked. 
     nstack = 1
-    if field.name in ['X3', 'C3']:
+    if field in ['X3', 'C3']:
         if obs.band in ['g','r']:
             nstack = 3
         elif obs.band == 'i':
             nstack = 5
         elif obs.band == 'z':
             nstack = 11
-    elif field.name in ['E1', 'E2', 'C1', 'C2', 'S1', 'S2', 'X1','X2'] and obs.band=='z':
+    elif field in ['E1', 'E2', 'C1', 'C2', 'S1', 'S2', 'X1', 'X2'] and obs.band=='z':
         nstack = 2
     return ephem.date(obs.date + nstack*ephem.second*obs.exptime/2)
+
+
+def t_opp(ra, dec):
+    '''
+    Computes the approximate time of opposition for the given (ra, dec)
+    '''
+    t0 = ephem.date('2015/01/01')
+    lon, lat = Ecliptic(Equatorial(ra, dec)).get()
+    sun = ephem.Sun()
+    sun.compute(t0)
+    lon_s, lat_s = Ecliptic(Equatorial(sun.ra, sun.dec)).get()
+    delta_lon = lon-lon_s
+    # first approximation
+    t180 = t0 + sidereal_year/2 + delta_lon/sidereal_rate
+    # correction
+    sun.compute(t180)
+    lon_s, lat_s = Ecliptic(Equatorial(sun.ra, sun.dec)).get()
+    t180 = t180 + (lon-lon_s + np.pi)/sidereal_rate
+    return ephem.date(t180)
+
+def parallax(ra, dec, date):
+    '''
+    
+    Calculate the shifts and rate of change in ecliptic coordinates expected for a stationary object 
+    at the specified location on the specified date.
+    
+    date should be a DateTime object, pyEphem
+    date, floating-point JD, or compatible string.
+    Results are returned as a pair (dlon, dlat),
+    in arbitrary units. To get appropriately scaled
+    results, multiply by the reciprocal of the object's
+    distance from the sun in AU.
+    '''
+    date = DateTime(date)
+    omegat = sidereal_rate * (date - t_opp(ra, dec))
+    lat = Ecliptic(Equatorial(ra, dec)).lat
+    dlon = -np.sin(omegat)/np.cos(lat)
+    dlat = np.cos(omegat)*np.sin(lat)
+    vlon = -np.cos(omegat)/np.cos(lat)
+    vlat = -np.sin(omegat)*np.sin(lat)
+    return dlon, dlat, vlon, vlat
+
+def exposure_parallax():
+    p={}
+    for exp in exposures:
+        dlon, dlat, vlon, vlat = parallax(exp.ra, exp.dec, exp.date)
+        p[exp.expnum]={'dlon':dlon, 'dlat':dlat, 'vlon':vlon, 'vlat':vlat}
+    return p
 
