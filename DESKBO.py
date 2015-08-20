@@ -4,8 +4,8 @@ from __future__ import division
 
 import ephem
 import numpy as np
-from pyOrbfit.Orbit import Orbit
-from test.KBO import Catalog, DateTime, hours, degrees, get_nite
+from Orbit import Orbit
+from KBO import Catalog, DateTime, hours, degrees
 import webcolors
 
 GM = 4.*np.pi*np.pi/1.0000378 # solar gravitation, from orbfit
@@ -70,7 +70,7 @@ def DEScands(fields=None):
         {'obsfile':prefix+'cands/RG98/RG98.csv', 'name':'2013 RG98','field':'C3','pltcol':np.array(webcolors.name_to_rgb('cornflowerblue'))/255},    # 22
         {'obsfile':prefix+'cands/YO9/YO9.csv', 'name':'2012 YO9','field':'S1','pltcol':np.array(webcolors.name_to_rgb('limegreen'))/255},        # 23
         {'obsfile':prefix+'cands/VT37/VT37.csv', 'name':'2014 VT37','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumorchid'))/255},    #25
-        {'obsfile':prefix+'cands/E1Y2a/E1Y2a.csv', 'name':'E1Y2a','field':'E1','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #26
+        {'obsfile':prefix+'cands/QR441/QR441.csv', 'name':'2014 QR441','field':'E1','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #26
         {'obsfile':prefix+'cands/X3Y1b/X3Y1b.csv', 'name':'X3Y1b','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumpurple'))/255}      #27
         ]
     rocks = [DESKBO(c['obsfile'], name=c['name'], field=c['field'],pltcolor=c['pltcol']) for c in cands]
