@@ -3,7 +3,7 @@ import csv
 from scipy.spatial import KDTree
 import networkx as nx
 from KBO import *
-from linktools import *
+import linkutils
 
 
 class TNOfinder(object):
@@ -25,7 +25,7 @@ class TNOfinder(object):
         self.look_ahead_nights = look_ahead_nights   # how many visits to look ahead for linking
         self.nominal_distance = nominal_distance  # AU
         self.vmax = 150 # arcsec/day
-        self.para = exposure_parallax()        # get dlon, dlat, vlon, vlat for each exposure
+        self.para = linkutils.exposure_parallax()        # get dlon, dlat, vlon, vlat for each exposure
         self.good_triplets = []
         self.graph = nx.Graph()
         self.candidates = []
@@ -61,6 +61,29 @@ class TNOfinder(object):
             return 0.7 + (0.95-0.7)/(800-400)*(displacement_arcsec-400)
         else:
             return 0.95
+
+
+#    def parallax(self, ra, dec, date):
+#        '''
+#        
+#        Calculate the shifts and rate of change in ecliptic coordinates expected for a stationary object 
+#        at the specified location on the specified date.
+#        
+#        date should be a DateTime object, pyEphem
+#        date, floating-point JD, or compatible string.
+#        Results are returned as a pair (dlon, dlat),
+#        in arbitrary units. To get appropriately scaled
+#        results, multiply by the reciprocal of the object's
+#        distance from the sun in AU.
+#        '''
+#        date = DateTime(date)
+#        omegat = sidereal_rate * (date - t_opp(ra, dec))
+#        lat = Ecliptic(Equatorial(ra, dec)).lat
+#        dlon = -np.sin(omegat)/np.cos(lat)
+#        dlat = np.cos(omegat)*np.sin(lat)
+#        vlon = -np.cos(omegat)/np.cos(lat)
+#        vlat = -np.sin(omegat)*np.sin(lat)
+#        return dlon, dlat, vlon, vlat
     
     def tno_like_orig(self, point1, point2, lon1, lat1, dlon, dlat, debug=False):
         '''
@@ -98,8 +121,8 @@ class TNOfinder(object):
             velocity = displacement_asec/(point2.date - point1.date)
         else: 
             velocity=9999
-        this_dlon, this_dlat, this_vlon, this_vlat = parallax(point1.ra, point1.dec, point1.date) 
-        next_dlon, next_dlat, next_vlon, next_vlat = parallax(point2.ra, point2.dec, point2.date)   
+        this_dlon, this_dlat, this_vlon, this_vlat = linkutils.parallax(point1.ra, point1.dec, point1.date) 
+        next_dlon, next_dlat, next_vlon, next_vlat = linkutils.parallax(point2.ra, point2.dec, point2.date)   
         dlon, dlat = next_dlon-this_dlon, next_dlat-this_dlat
         dot = np.cos(lat1)**2*(lon2 - lon1)*dlon + (lat2 - lat1)*dlat
         norm = np.sqrt(np.cos(lat1)**2*dlon**2 + dlat**2)
@@ -119,11 +142,12 @@ class TNOfinder(object):
         look_ahead_nites = sorted([n for n in nites if 0<self.nites_between(thisnite,n)<self.look_ahead_nights])
         lon, lat = Ecliptic(Equatorial(point.ra, point.dec)).get()
         this_dlon, this_dlat = self.para[point.expnum]['dlon'], self.para[point.expnum]['dlat']
+#        this_dlon, this_dlat, this_vlon, this_vlat = linkutils.parallax(point.ra, point.dec, point.date) 
         next_obj = []
         for next_nite in look_ahead_nites:
             if verbose: print 'Linking target nite: ', next_nite
             deltaT = self.nites_between(thisnite,next_nite)
-            next_dlon, next_dlat, next_vlon, next_vlat = parallax(point.ra, point.dec, point.date+deltaT)
+            next_dlon, next_dlat, next_vlon, next_vlat = linkutils.parallax(point.ra, point.dec, point.date+deltaT)
             dlon, dlat = next_dlon-this_dlon, next_dlat-this_dlat
             search_center = Equatorial(Ecliptic(lon+dlon/self.nominal_distance, lat+dlat/self.nominal_distance))
             deltaR = np.sqrt(dlon**2*np.cos(lat)**2 + dlat**2)/self.nominal_distance
