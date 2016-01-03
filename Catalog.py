@@ -5,6 +5,7 @@ from collections import Mapping
 import weakref
 import numpy as np
 import csv
+import sys
 
 class Catalog(object):
     def __init__(self, rows = None, orderedby = None, mode = 'ignore', verbose = False, **kwargs):
@@ -37,11 +38,14 @@ class Catalog(object):
             with open(rows) as csvcat:
                 catdict = csv.DictReader(csvcat, dialect = 'excel')
                 for row in catdict:
-#                    print row
-                    if 'date' in row.keys():
-                        if row['date'][0] != '#': self._points.append(Point(self, mode = mode, verbose = verbose, **row))  # ignore comment lines
-                    else:
-                        self._points.append(Point(self, mode = mode, verbose = verbose, **row))
+                    try:
+                        if 'date' in row.keys():
+                            if row['date'][0] != '#': self._points.append(Point(self, mode = mode, verbose = verbose, **row))  # ignore comment lines
+                        else:
+                            self._points.append(Point(self, mode = mode, verbose = verbose, **row))
+                    except ValueError:
+                        print 'Error parsing row: ', sys.exc_info()[0]
+                        print row
         elif rows is not None:
             for row in rows:
                 if isinstance(row, Point):

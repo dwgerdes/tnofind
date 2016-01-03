@@ -4,11 +4,15 @@ from scipy.spatial import KDTree
 import networkx as nx
 from KBO import *
 import linkutils
+import itertools
+import uuid
+import os.path
+from TNOcandidate import TNOcandidate
 
 
 class TNOfinder(object):
-    def __init__(self, objcat, band = None, exclude_objids=None, date_start=None, look_ahead_nights=30,
-                nominal_distance=60, astrometric_err=0.15):
+    def __init__(self, objcat, bands = None, exclude_objids=None, date_start=None, look_ahead_nights=30,
+                nominal_distance=60, astrometric_err=0.15, runid=None):
 
 # objcat is a Catalog (for now) which must contain at least the following columns:
 #     date (as a DateTime object)
@@ -21,22 +25,25 @@ class TNOfinder(object):
 #     mag
 #     ccd
         self.astrometric_err = astrometric_err
-        self.set_catalog(objcat, band, exclude_objids, date_start)        
+        self.set_catalog(objcat, bands, exclude_objids, date_start)        
         self.look_ahead_nights = look_ahead_nights   # how many visits to look ahead for linking
         self.nominal_distance = nominal_distance  # AU
         self.vmax = 150 # arcsec/day
         self.para = linkutils.exposure_parallax()        # get dlon, dlat, vlon, vlat for each exposure
         self.good_triplets = []
+        self.all_triplets = []
         self.graph = nx.Graph()
         self.candidates = []
         self.linkpoints = []
+        self.runid=runid        # identifier for this linking run
+
         
     
-    def set_catalog(self, cat, band=None, exclude_objids=None, date_start=None):
+    def set_catalog(self, cat, bands=None, exclude_objids=None, date_start=None):
         self.objects = cat
-        self.band = band
+        self.bands = bands
         if exclude_objids is not None: self.objects = Catalog(obj for obj in self.objects if obj.objid not in exclude_objids)
-        if band is not None: self.objects = Catalog(obj for obj in self.objects if obj.band == band)
+        if bands is not None: self.objects = Catalog(obj for obj in self.objects if obj.band in bands)
         self.nites = sorted(set(point.nite for point in self.objects))
         if date_start is not None: self.objects = Catalog(obj for obj in self.objects if obj.date>=date_start)
         self.objects.add_constant('obscode', 807)
@@ -131,7 +138,7 @@ class TNOfinder(object):
         if debug:
             linkinfo = {'v':velocity, 'cos':cosine, 'dot':dot, 'displacement':displacement_asec, 'cut':self.cosine_cut(displacement_asec),
                      'point1':point1, 'point2':point2, 'lon1':lon1, 'lon2':lon2, 'lat1':lat1, 'lat2':lat2, 'dlon':dlon, 'dlat':dlat, 'norm':norm,
-                     'TNOlike':TNOlike2}
+                     'TNOlike':TNOlike}
             self.linkpoints.append(linkinfo)
         return TNOlike
        
@@ -154,7 +161,7 @@ class TNOfinder(object):
 #            print ephem.separation((search_center.ra, search_center.dec), (point.ra, point.dec))*3600*180/np.pi/deltaT
             sep_max = self.vmax*np.pi/(180*3600)*(deltaT)/2
             current_objects = [obj for obj in self.objects if obj.nite == next_nite \
-                               and (self.band is None or obj.band == self.band) \
+                               and (self.bands is None or obj.band in self.bands) \
                                 and ephem.separation((search_center.ra, search_center.dec), (obj.ra, obj.dec))<deltaR]
             if verbose: print '   Found ', len(current_objects), ' points in search window'
             # now the real work: for each object, test to see
@@ -189,12 +196,14 @@ class TNOfinder(object):
                 for obj3 in next_next_points:
  #                   if verbose: print '-',
                     triple=Catalog([obj1, obj2, obj3])
+                    self.all_triplets.append(triple)
                     orbit = Orbit(triple)
                     if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>20):
                         good_triplets.append(triple)
+                        self.good_triplets.append(triple)
                     if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>20):
                         good_triplets.append(triple)
-        self.good_triplets = good_triplets
+                        self.good_triplets.append(triple)
         self.candidates = self.tnocands(good_triplets)
         return good_triplets
 
@@ -217,10 +226,27 @@ class TNOfinder(object):
         cat.add_constant('obscode', 807)
         cat.add_constant('err', self.astrometric_err)
         return cat
-    
+
+    def distinct_chains(self, cat):
+        '''
+        A catalog built from connected observations may contain more than one point per exposure, for example if 
+        a point links to two closely-spaced points in a subsequent exposure. This routine returns a list of all catalogs 
+        that can be built from the input catalog containing only one point per exposure. Note that if the catalog
+        does not have any duplicate exposure numbers, the result is a list containing only the input catalog
+        '''
+        exps = set([p.expnum for p in cat])
+        objids = [[p.objid for p in cat if p.expnum==e] for e in exps]
+        combos = [oid for oid in itertools.product(*objids)]   # itertools wizardry
+        return [Catalog([p for p in cat if p.objid in combo]) for combo in combos]
+ 
     def tnocands(self, triplets):
         subs = self.subgraphs(self.make_graph(triplets))
-        observations = [self.connected_observations(sub) for sub in subs]
+        cats = [self.connected_observations(sub) for sub in subs]
+        observations = []
+        for cat in cats:
+            unique_cats = self.distinct_chains(cat)
+            for u in unique_cats:
+                observations.append(u)
         orbits = [Orbit(obs) for obs in observations]
         return zip(orbits, observations)
     
@@ -230,6 +256,7 @@ class TNOfinder(object):
         print 'Good triplets found: ', len(cands)
         for cand in cands:
             orbit, observations = cand[0], cand[1]
+            tc = TNOcandidate(orbit, observations, runid=self.runid, csvname=os.path.join('linker_output',str(self.runid)+'_rolling_'+str(nite)))
             print 'Chi^2, ndof: ', orbit.chisq, orbit.ndof
             print 'Elements: ', orbit.elements
             print 'Element errors:', orbit.elements_errs

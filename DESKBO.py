@@ -22,7 +22,7 @@ class DESKBO(object):
                                     ml_score=float, snobjid=int, orderedby='date')
         self.observations.add_constant('obscode', 807)
         self.observations.add_constant('err', 0.15)
-        self.orbit = Orbit(self.observations)
+        self.orbit = Orbit(self.observations)   # Warning: somehow orbit.predict_pos() does not work from here.
         self.body = self.orbit.ellipticalBody(name=self.name)
         self.pltcolor=pltcolor
         self.elements, self.errs = self.orbit.get_elements()
@@ -71,7 +71,21 @@ def DEScands(fields=None):
         {'obsfile':prefix+'cands/YO9/YO9.csv', 'name':'2012 YO9','field':'S1','pltcol':np.array(webcolors.name_to_rgb('limegreen'))/255},        # 23
         {'obsfile':prefix+'cands/VT37/VT37.csv', 'name':'2014 VT37','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumorchid'))/255},    #25
         {'obsfile':prefix+'cands/QR441/QR441.csv', 'name':'2014 QR441','field':'E1','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #26
-        {'obsfile':prefix+'cands/X3Y1b/X3Y1b.csv', 'name':'X3Y1b','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumpurple'))/255}      #27
+        {'obsfile':prefix+'cands/VD24/VD24.csv', 'name':'2013 VD24','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumpurple'))/255},      #27
+        {'obsfile':prefix+'cands/QS441/QS441.csv', 'name':'2014 QS441','field':'X1','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #30
+        {'obsfile':prefix+'cands/PD312/PD312.csv', 'name':'2015 PD312','field':'X2','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #30
+        {'obsfile':prefix+'cands/PF312/PF312.csv', 'name':'2015 PF312','field':'S2','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #29
+        {'obsfile':prefix+'cands/QU441/QU441.csv', 'name':'2014 QU441','field':'S1','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #36
+        {'obsfile':prefix+'cands/SB349/SB349.csv', 'name':'2014 SB349','field':'S2','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #36
+        {'obsfile':prefix+'cands/Y3/X3-01.csv', 'name':'2015 X3-01','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #32
+        {'obsfile':prefix+'cands/Y3/X3-02.csv', 'name':'2015 X3-02','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #32
+        {'obsfile':prefix+'cands/Y3/X2-02.csv', 'name':'2015 X2-02','field':'X2','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #33
+        {'obsfile':prefix+'cands/Y3/X3-03.csv', 'name':'2015 X3-03','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},          #34
+        {'obsfile':prefix+'cands/Y3/X3-05.csv', 'name':'2015 X3-05','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #38
+        {'obsfile':prefix+'cands/Y3/X3-06.csv', 'name':'2015 X3-06','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #39
+#        {'obsfile':prefix+'cands/Y3/test.csv', 'name':'2015 test','field':'X2','pltcol':np.array(webcolors.name_to_rgb('darkcyan'))/255},         #38
+        {'obsfile':prefix+'cands/RM98/RM98.csv', 'name':'2013 RM98','field':'Stripe82','pltcol':np.array(webcolors.name_to_rgb('darkcyan'))/255},         #38
+        {'obsfile':prefix+'cands/TJ159/TJ159.csv', 'name':'TJ159','field':'Stripe82','pltcol':np.array(webcolors.name_to_rgb('cornflowerblue'))/255}         #39
         ]
     rocks = [DESKBO(c['obsfile'], name=c['name'], field=c['field'],pltcolor=c['pltcol']) for c in cands]
     if fields is not None:

@@ -184,7 +184,7 @@ class MPCRecord(object):
         else:
             mpcmag = "%4.1f" % mag + ' '
         assert len(mpcmag)==5
-        assert len(band)==1 and band in ['g','r','i','z']
+        assert len(band)==1 and band in ['g','r','i','z','Y']
         return mpcmag+band
         
         

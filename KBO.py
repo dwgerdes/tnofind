@@ -241,6 +241,8 @@ def exposure_midpoint(obs, field):
             nstack = 11
     elif field in ['E1', 'E2', 'C1', 'C2', 'S1', 'S2', 'X1', 'X2'] and obs.band=='z':
         nstack = 2
+    elif field=='wide':
+        nstack=1
     return ephem.date(obs.date + nstack*ephem.second*obs.exptime/2)
 
 
