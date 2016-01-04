@@ -121,6 +121,18 @@ class TNOfinder(object):
             self.linkpoints.append(linkinfo)
         return TNOlike
 
+    def find_linkable(self, report_interval=100):
+        linkable_ids = {}
+        i=0
+        npts = len(self.objects)
+        for point in self.objects:
+            if report_interval>0:
+                if i % report_interval == 0: print 'Building link table for point ', i, ' of ', npts
+                i+=1
+            linkable_points = self.link_obj(point)
+            linkable_ids[point.objid]=[p.objid for p in linkable_points]
+        return linkable_ids
+
     def tno_like(self, point1, point2, debug=False):
         lon1, lat1 = Ecliptic(Equatorial(point1.ra, point1.dec)).get()
         lon2, lat2 = Ecliptic(Equatorial(point2.ra, point2.dec)).get()
@@ -180,15 +192,53 @@ class TNOfinder(object):
                 else:
                     if verbose: print 'Point NOT tno_like...'
         return next_obj
-    
+
     def find_triplets(self, allow_unbound=False, verbose=False):
+        current_nite = 0
+        good_triplets = []
+        if verbose:
+            print '*** TNOfinder stage 1: Building link table ***'
+        linkable_ids = self.find_linkable()
+        if verbose:
+            print '*** TNOfinder: Building link table complete ***'
+            print
+            print '*** TNOfinder stage 2: Searching for triplets ***'
+        for obj1 in self.objects:
+            if obj1.nite>current_nite:
+                if verbose:
+                    if current_nite>0: self.report_state(current_nite, good_triplets)
+                    print 'Linking points from nite: ', obj1.nite
+                current_nite = obj1.nite 
+            next_points = [p for p in self.objects if p.objid in linkable_ids[obj1.objid]]
+            for obj2 in next_points:
+                next_next_points = [p for p in self.objects if p.objid in linkable_ids[obj2.objid]]
+                for obj3 in next_next_points:
+ #                   if verbose: print '-',
+                    triple=Catalog([obj1, obj2, obj3])
+                    orbit = Orbit(triple)
+                    if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>self.nominal_distance/2):
+                        good_triplets.append(triple)
+                        self.good_triplets.append(triple)
+                    if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>self.nominal_distance/2):
+                        good_triplets.append(triple)
+                        self.good_triplets.append(triple)
+        if verbose:
+            print '*** TNOfinder: Triplet search complete. '
+            print
+            print '*** TNOfinder stage 3: merging triplets, building final candidate list ***'
+        self.candidates = self.tnocands(good_triplets)
+        return good_triplets
+
+
+
+    def find_triplets_orig(self, allow_unbound=False, verbose=False):
         current_nite = 0
         good_triplets = []
         for obj1 in self.objects:
  #           self.memory_tracker.print_diff()
             if obj1.nite>current_nite:
                 if verbose:
-                    self.report_state(current_nite, good_triplets)
+                    if current_nite>0: self.report_state(current_nite, good_triplets)
                     print 'Linking points from nite: ', obj1.nite
                 current_nite = obj1.nite
             next_points = self.link_obj(obj1, verbose=False)
