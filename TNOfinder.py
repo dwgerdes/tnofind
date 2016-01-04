@@ -8,6 +8,7 @@ import itertools
 import uuid
 import os.path
 from TNOcandidate import TNOcandidate
+#from pympler import tracker
 
 
 class TNOfinder(object):
@@ -31,11 +32,12 @@ class TNOfinder(object):
         self.vmax = 150 # arcsec/day
         self.para = linkutils.exposure_parallax()        # get dlon, dlat, vlon, vlat for each exposure
         self.good_triplets = []
-        self.all_triplets = []
         self.graph = nx.Graph()
         self.candidates = []
         self.linkpoints = []
         self.runid=runid        # identifier for this linking run
+ #       self.memory_tracker = tracker.SummaryTracker()
+ #       self.memory_tracker.print_diff()
 
         
     
@@ -180,10 +182,10 @@ class TNOfinder(object):
         return next_obj
     
     def find_triplets(self, allow_unbound=False, verbose=False):
-        cat1 = self.objects
         current_nite = 0
         good_triplets = []
-        for obj1 in cat1:
+        for obj1 in self.objects:
+ #           self.memory_tracker.print_diff()
             if obj1.nite>current_nite:
                 if verbose:
                     self.report_state(current_nite, good_triplets)
@@ -196,7 +198,6 @@ class TNOfinder(object):
                 for obj3 in next_next_points:
  #                   if verbose: print '-',
                     triple=Catalog([obj1, obj2, obj3])
-                    self.all_triplets.append(triple)
                     orbit = Orbit(triple)
                     if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>20):
                         good_triplets.append(triple)
