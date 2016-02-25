@@ -14,10 +14,10 @@ from TNOcandidate import TNOcandidate
 import json
 import argparse
 
-def make_cat(infile): #, t_eff_min=0.3, link_bands=["r","i"], exptime_min=90):
+def make_cat(infile, t_eff_min=0.3, link_bands=["r","i"], exptime_min=90):
 	cat_in = Catalog(infile, date=str, ra=str, dec=str, nite=int, expnum=int, exptime=float, 
 		band=str,ccdnum=int,mag=float,snobjid=int,ml_score=float, snfake_id=int)
-	'''
+
 	cat_in.refactor('ra',  lambda ra: hours(degrees(ra)))
 	cat_in.refactor('dec', lambda dec: degrees(dec))
 	cat_in.refactor('date', lambda date: toDateTime(date))  
@@ -33,8 +33,6 @@ def make_cat(infile): #, t_eff_min=0.3, link_bands=["r","i"], exptime_min=90):
 	good_exps = [e.expnum for e in exposures_in if e.t_eff>t_eff_min]
 	cat_good = Catalog([p for p in cat_in if p.expnum in good_exps])
 	return cat_good
-	'''
-	return cat_in
 
 def main():
 	ap = argparse.ArgumentParser()
@@ -48,9 +46,9 @@ def main():
 	link_bands = conf["link_bands"]
 	t_eff_min = conf["t_eff_min"]
 	exptime_min = conf["exptime_min"]
-	cat = make_cat(infile) # link_bands=link_bands, t_eff_min=t_eff_min, exptime_min=exptime_min)
+	cat = make_cat(infile, link_bands=link_bands, t_eff_min=t_eff_min, exptime_min=exptime_min)
 	for p in cat._points[:10]:
-		print p.date, p.ra, p.dec, p.expnum, p.exptime, p.ccd
+		print p.date, p.ra, p.dec, p.expnum, p.exptime, p.ccd, p.fakeid
 	print 'Using input file ', infile
 	print 'Linker run id: ', runid
 	print 'Length of input catalog: ', len(cat) 
