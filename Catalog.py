@@ -34,7 +34,7 @@ class Catalog(object):
         self.properties = {}
         self._points = []
         self._mode = mode
-        if isinstance(rows, str):
+        if isinstance(rows, str) or isinstance(rows, unicode):
             with open(rows) as csvcat:
                 catdict = csv.DictReader(csvcat, dialect = 'excel')
                 for row in catdict:

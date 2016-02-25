@@ -7,8 +7,9 @@ import linkutils
 import itertools
 import uuid
 import os.path
+import json
 from TNOcandidate import TNOcandidate
-#from pympler import tracker
+from pympler import tracker
 
 
 class TNOfinder(object):
@@ -25,6 +26,7 @@ class TNOfinder(object):
 #     objid (a unique identifier, such as snobjid)
 #     mag
 #     ccd
+        self._version = '1.0.0'
         self.astrometric_err = astrometric_err
         self.set_catalog(objcat, bands, exclude_objids, date_start)        
         self.look_ahead_nights = look_ahead_nights   # how many visits to look ahead for linking
@@ -50,7 +52,7 @@ class TNOfinder(object):
         if date_start is not None: self.objects = Catalog(obj for obj in self.objects if obj.date>=date_start)
         self.objects.add_constant('obscode', 807)
         self.objects.add_constant('err', self.astrometric_err)
-        self.objects.orderby('date')
+        self.objects.orderby('expnum')
 
 
     def nites_between(self, nite1, nite2):
@@ -162,8 +164,8 @@ class TNOfinder(object):
         if verbose: print 'Linking point ', point.objid, point.date, thisnite, point.ra, point.dec, point.band
         look_ahead_nites = sorted([n for n in nites if 0<self.nites_between(thisnite,n)<self.look_ahead_nights])
         lon, lat = Ecliptic(Equatorial(point.ra, point.dec)).get()
-        this_dlon, this_dlat = self.para[point.expnum]['dlon'], self.para[point.expnum]['dlat']
-#        this_dlon, this_dlat, this_vlon, this_vlat = linkutils.parallax(point.ra, point.dec, point.date) 
+#        this_dlon, this_dlat = self.para[point.expnum]['dlon'], self.para[point.expnum]['dlat']
+        this_dlon, this_dlat, this_vlon, this_vlat = linkutils.parallax(point.ra, point.dec, point.date) 
         next_obj = []
         for next_nite in look_ahead_nites:
             if verbose: print 'Linking target nite: ', next_nite
@@ -181,24 +183,29 @@ class TNOfinder(object):
             # now the real work: for each object, test to see
             # if it's consistent with being the next point in
             # a KBO trajectory, i.e. consistent in direction and displacement with earth parallax.
-            for point2 in current_objects:
-                if verbose: print 'Examining point ', point2.objid, point2.date, thisnite, point2.ra, point2.dec, point.band, ' ... ', 
-#                next_dlon, next_dlat = self.para[point2.expnum]['dlon'], self.para[point2.expnum]['dlat']
-#                dlon, dlat = next_dlon-this_dlon, next_dlat-this_dlat
-#                if self.tno_like(point, point2, lon, lat, dlon, dlat, debug=True): 
-                if self.tno_like(point, point2, debug=False):
-                    if verbose: print 'Point is tno_like...'
-                    next_obj.append(point2)
-                else:
-                    if verbose: print 'Point NOT tno_like...'
+            if True:
+                for point2 in current_objects:
+                    if verbose: print 'Examining point ', point2.objid, point2.date, thisnite, point2.ra, point2.dec, point.band, ' ... ', 
+    #                next_dlon, next_dlat = self.para[point2.expnum]['dlon'], self.para[point2.expnum]['dlat']
+    #                dlon, dlat = next_dlon-this_dlon, next_dlat-this_dlat
+    #                if self.tno_like(point, point2, lon, lat, dlon, dlat, debug=True): 
+                    if self.tno_like(point, point2, debug=False):
+                        if verbose: print 'Point is tno_like...'
+                        next_obj.append(point2)
+                    else:
+                        if verbose: print 'Point NOT tno_like...'
         return next_obj
 
     def find_triplets(self, allow_unbound=False, verbose=False):
         current_nite = 0
+ #       self.memory_tracker.print_diff()
         good_triplets = []
         if verbose:
             print '*** TNOfinder stage 1: Building link table ***'
         linkable_ids = self.find_linkable()
+        linkmap = os.path.join('linker_output',str(self.runid)+'_linkmap.json')
+        with open(linkmap,'w') as f:
+            json.dump(linkable_ids, f)
         if verbose:
             print '*** TNOfinder: Building link table complete ***'
             print
@@ -206,7 +213,9 @@ class TNOfinder(object):
         for obj1 in self.objects:
             if obj1.nite>current_nite:
                 if verbose:
-                    if current_nite>0: self.report_state(current_nite, good_triplets)
+                    if current_nite>0: 
+                        self.report_state(current_nite, good_triplets)
+ #                       self.memory_tracker.print_diff()
                     print 'Linking points from nite: ', obj1.nite
                 current_nite = obj1.nite 
             next_points = [p for p in self.objects if p.objid in linkable_ids[obj1.objid]]
@@ -226,35 +235,6 @@ class TNOfinder(object):
             print '*** TNOfinder: Triplet search complete. '
             print
             print '*** TNOfinder stage 3: merging triplets, building final candidate list ***'
-        self.candidates = self.tnocands(good_triplets)
-        return good_triplets
-
-
-
-    def find_triplets_orig(self, allow_unbound=False, verbose=False):
-        current_nite = 0
-        good_triplets = []
-        for obj1 in self.objects:
- #           self.memory_tracker.print_diff()
-            if obj1.nite>current_nite:
-                if verbose:
-                    if current_nite>0: self.report_state(current_nite, good_triplets)
-                    print 'Linking points from nite: ', obj1.nite
-                current_nite = obj1.nite
-            next_points = self.link_obj(obj1, verbose=False)
-            for obj2 in next_points:
- #               if verbose: print '.',
-                next_next_points = self.link_obj(obj2, verbose=False)
-                for obj3 in next_next_points:
- #                   if verbose: print '-',
-                    triple=Catalog([obj1, obj2, obj3])
-                    orbit = Orbit(triple)
-                    if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>20):
-                        good_triplets.append(triple)
-                        self.good_triplets.append(triple)
-                    if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>20):
-                        good_triplets.append(triple)
-                        self.good_triplets.append(triple)
         self.candidates = self.tnocands(good_triplets)
         return good_triplets
 
@@ -307,11 +287,12 @@ class TNOfinder(object):
         print 'Good triplets found: ', len(cands)
         for cand in cands:
             orbit, observations = cand[0], cand[1]
-            tc = TNOcandidate(orbit, observations, runid=self.runid, csvname=os.path.join('linker_output',str(self.runid)+'_rolling_'+str(nite)))
-            print 'Chi^2, ndof: ', orbit.chisq, orbit.ndof
-            print 'Elements: ', orbit.elements
-            print 'Element errors:', orbit.elements_errs
-            print 'Observations: '
-            print observations.writes()
-            print
+            if orbit.chisq/orbit.ndof<2:
+                tc = TNOcandidate(orbit, observations, runid=self.runid, csvname=os.path.join('linker_output',str(self.runid)+'_rolling_'+str(nite)))
+                print 'Chi^2, ndof: ', orbit.chisq, orbit.ndof
+                print 'Elements: ', orbit.elements
+                print 'Element errors:', orbit.elements_errs
+                print 'Observations: '
+                print observations.writes()
+                print
         print '--------------------------------------------------------------------------------------------'

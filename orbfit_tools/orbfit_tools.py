@@ -135,7 +135,7 @@ def djd(jd):
     return jd-2415020
 
 def mean_anomaly(elems, jd0):
-    if np.isnan(elems['top']):
+    if np.isnan(elems['top']) or elems['a']<0:
         mu = -999
     else:
         mu = (jd0-elems['top'])*np.sqrt(combinedMass/elems['a']**3)*DAY*180/np.pi

@@ -110,10 +110,12 @@ class TNOcandidate(object):
     	peri_jd = -999 if np.isnan(elements['top']) else elements['top']
     	peri_date = -999 if np.isnan(elements['top']) else ephem.date(elements['top']-2415020)
     	peri_jd_err = -999 if (np.isnan(elements['top']) or np.isnan(errs['top'])) else errs['top']
+        period = elements['a']**1.5 if elements['a']>0 else -999
+        period_err = 3*np.sqrt(elements['a'])/2*errs['a'] if elements['a']>0 else -999
 
     	orbit_data = np.array([self.id, self.runid, round(self.orbit.chisq,2), self.orbit.ndof, round(elements['a'],3), round(elements['e'],4), round(elements['i'],4),
     		round(elements['aop'],2), round(elements['lan'],3), round(peri_jd,2), peri_date, round(epoch,2),
-    		mean_anomaly(elements, epoch), elements['a']**1.5, 3*np.sqrt(elements['a'])/2*errs['a'],
+    		mean_anomaly(elements, epoch), round(period,3) , round(period_err,3),
     		round(errs['a'],2), round(errs['e'],4), round(errs['i'],4), round(errs['aop'],2), round(errs['lan'],3), round(peri_jd_err,2), round(self.orbit.lat0,4), round(self.orbit.lon0,4),
     		round(self.orbit.xBary,4), round(self.orbit.yBary,4), round(self.orbit.zBary,4), 
     		elements_abg['a'], elements_abg['b'], elements_abg['g'],
@@ -123,6 +125,12 @@ class TNOcandidate(object):
     		])
     	df.ix[0] = orbit_data
     	return df
+
+    def arc_length(self):
+    #    df[['date_obs']]=df[['date_obs']].astype(ephem.date)
+        dates = sorted(self.df_obs['date_obs'], reverse=True)
+        return ephem.date(dates[-1])-ephem.date(dates[0])
+        
 
 
 
