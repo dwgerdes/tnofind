@@ -7,7 +7,7 @@ import linkutils
 import itertools
 import uuid
 import os.path
-import json
+import pickle
 from TNOcandidate import TNOcandidate
 from pympler import tracker
 
@@ -38,7 +38,7 @@ class TNOfinder(object):
         self.candidates = []
         self.linkpoints = []
         self.runid=runid        # identifier for this linking run
- #       self.memory_tracker = tracker.SummaryTracker()
+        self.memory_tracker = tracker.SummaryTracker()
  #       self.memory_tracker.print_diff()
 
         
@@ -72,56 +72,6 @@ class TNOfinder(object):
             return 0.7 + (0.95-0.7)/(800-400)*(displacement_arcsec-400)
         else:
             return 0.95
-
-
-#    def parallax(self, ra, dec, date):
-#        '''
-#        
-#        Calculate the shifts and rate of change in ecliptic coordinates expected for a stationary object 
-#        at the specified location on the specified date.
-#        
-#        date should be a DateTime object, pyEphem
-#        date, floating-point JD, or compatible string.
-#        Results are returned as a pair (dlon, dlat),
-#        in arbitrary units. To get appropriately scaled
-#        results, multiply by the reciprocal of the object's
-#        distance from the sun in AU.
-#        '''
-#        date = DateTime(date)
-#        omegat = sidereal_rate * (date - t_opp(ra, dec))
-#        lat = Ecliptic(Equatorial(ra, dec)).lat
-#        dlon = -np.sin(omegat)/np.cos(lat)
-#        dlat = np.cos(omegat)*np.sin(lat)
-#        vlon = -np.cos(omegat)/np.cos(lat)
-#        vlat = -np.sin(omegat)*np.sin(lat)
-#        return dlon, dlat, vlon, vlat
-    
-    def tno_like_orig(self, point1, point2, lon1, lat1, dlon, dlat, debug=False):
-        '''
-        returns True if point1 and point2 are in a TNO-like relationship to each other, i.e. displacement
-        magnitude and direction consistent with earth reflex motion. 
-        point1 = point in earlier visit
-        point2 = point in subsequent visit that we are trying to link to point1.
-        lon1, lat1 = ecliptic coords of point1
-        dlon, dlat = expected change in direction from one visit to next: dlon = nextvisit.dlon - thisvisit.dlon, etc.
-        '''
-        lon2, lat2 = Ecliptic(Equatorial(point2.ra, point2.dec)).get()
-        displacement = ephem.separation((lon2, lat2), (lon1, lat1))
-        displacement_asec = displacement*180/np.pi*3600
-        norm = np.sqrt(np.cos(lat1)**2*dlon**2 + dlat**2)
-        dot = np.cos(lat1)**2*(lon2 - lon1)*dlon + (lat2 - lat1)*dlat
-        if point2.date != point1.date:
-            velocity = displacement_asec/(point2.date - point1.date)
-        else: 
-            velocity=9999
-        cosine = dot/(norm*displacement)
-        TNOlike = True if velocity<self.vmax and cosine>self.cosine_cut(displacement_asec) else False
-        if debug:
-            linkinfo = {'v':velocity, 'cos':cosine, 'dot':dot, 'displacement':displacement_asec, 'cut':self.cosine_cut(displacement_asec),
-                     'point1':point1, 'point2':point2, 'lon1':lon1, 'lon2':lon2, 'lat1':lat1, 'lat2':lat2, 'dlon':dlon, 'dlat':dlat, 'norm':norm,
-                     'TNOlike':TNOlike}
-            self.linkpoints.append(linkinfo)
-        return TNOlike
 
     def find_linkable(self, report_interval=100):
         linkable_ids = {}
@@ -196,41 +146,56 @@ class TNOfinder(object):
                         if verbose: print 'Point NOT tno_like...'
         return next_obj
 
-    def find_triplets(self, allow_unbound=False, verbose=False):
+    def find_triplets(self, allow_unbound=False, verbose=False, link_table=None):
         current_nite = 0
- #       self.memory_tracker.print_diff()
+        self.memory_tracker.print_diff()
         good_triplets = []
-        if verbose:
-            print '*** TNOfinder stage 1: Building link table ***'
-        linkable_ids = self.find_linkable()
-        linkmap = os.path.join('linker_output',str(self.runid)+'_linkmap.json')
-        with open(linkmap,'w') as f:
-            json.dump(linkable_ids, f)
+        if link_table is None:
+            if verbose:
+                print '*** TNOfinder stage 1: Building link table ***'
+            linkable_ids = self.find_linkable()
+            linkmap = os.path.join('linker_output',str(self.runid)+'_linkmap.pickle')
+            with open(linkmap,'wb') as f:
+                if verbose:
+                    print '   ----> Writing link table to file ', f
+                pickle.dump(linkable_ids, f)
+        else:
+            if verbose:
+                print '*** TNOfinder stage 1: Reading link table from file '+link_table+' ***'
+            with open(link_table,'rb') as f:
+                linkable_ids = pickle.load(f)
         if verbose:
             print '*** TNOfinder: Building link table complete ***'
             print
             print '*** TNOfinder stage 2: Searching for triplets ***'
-        for obj1 in self.objects:
-            if obj1.nite>current_nite:
-                if verbose:
-                    if current_nite>0: 
-                        self.report_state(current_nite, good_triplets)
- #                       self.memory_tracker.print_diff()
-                    print 'Linking points from nite: ', obj1.nite
-                current_nite = obj1.nite 
-            next_points = [p for p in self.objects if p.objid in linkable_ids[obj1.objid]]
-            for obj2 in next_points:
-                next_next_points = [p for p in self.objects if p.objid in linkable_ids[obj2.objid]]
-                for obj3 in next_next_points:
- #                   if verbose: print '-',
-                    triple=Catalog([obj1, obj2, obj3])
-                    orbit = Orbit(triple)
-                    if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>self.nominal_distance/2):
-                        good_triplets.append(triple)
-                        self.good_triplets.append(triple)
-                    if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>self.nominal_distance/2):
-                        good_triplets.append(triple)
-                        self.good_triplets.append(triple)
+        ipts = 0
+        if False:
+            for obj1 in self.objects:
+                if obj1.nite>current_nite:
+                    if verbose:
+                        if current_nite>0: 
+                            self.report_state(current_nite, good_triplets)
+                            self.memory_tracker.print_diff()
+                        print 'Linking points from nite: ', obj1.nite
+                    current_nite = obj1.nite 
+                next_points = [p for p in self.objects if p.objid in linkable_ids[obj1.objid]]
+                for obj2 in next_points:
+    #                if verbose: print '.',
+                    next_next_points = [p for p in self.objects if p.objid in linkable_ids[obj2.objid]]
+                    for obj3 in next_next_points:
+    #                    if verbose: print '-',
+                        ipts +=1
+                        triple=Catalog([obj1, obj2, obj3])
+                        orbit = Orbit(triple)
+                        if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>self.nominal_distance/2):
+                            good_triplets.append(triple)
+                            self.good_triplets.append(triple)
+                            if verbose: 
+                                print 'New good triplet:'
+                                self.report_state(current_nite, [good_triplets[-1]])
+                        if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>self.nominal_distance/2):
+                            good_triplets.append(triple)
+                            self.good_triplets.append(triple)
         if verbose:
             print '*** TNOfinder: Triplet search complete. '
             print

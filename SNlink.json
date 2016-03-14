@@ -1,9 +1,10 @@
 {
-	"infile": "wsdiff_S82_riz_fakes.csv",
+	"infile": "wsdiff_catalogs/wsdiff_S82_riz_fakes.csv",
 	"runid": "wsdiff_fakes_test",
 	"look_ahead_nights": 30,
 	"nominal_distance": 50,
 	"t_eff_min": 0.3,
 	"exptime_min": 90,
-	"link_bands": ["r","i","z"]
+	"link_bands": ["r","i","z"],
+	"link_table": "linker_output/wsdiff_S82_riz_fakes_linkmap.pickle"
 }

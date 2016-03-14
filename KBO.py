@@ -34,62 +34,6 @@ exposures.add_function('ellipse', _exp_contains)
 exposures_by_nite = exposures.groupby(lambda pt: pt.nite)
         
 
-def snob_query(rock, date, rng):
-    '''
-    Return an SQL query string that looks for SN difference imaging objects near the predicted position of rock on the specified date.
-    
-    rock should be a pyEphem Orbit object.
-    date should be a DateTime, pyEphem date, or
-    floating-point Julian Day.
-    rng specifies the search range in both ra and dec,
-    in (decimal) degrees.
-    Fields returned are date_obs, ra, dec, expnum,
-    exptime, band, ccdnum, mag, pixelx, pixely,
-    snobjid, ml_real_bogus_score.
-    '''
-    pos = rock.predict_pos(date)
-    ra, dec = pos['ra'] * 180/np.pi, pos['dec'] * 180/np.pi
-    nite = get_nite(date)
-    query = "select e.date_obs, o.ra, o.dec, e.expnum, e.exptime, o.band, o.ccdnum, o.mag, o.ml_real_bogus_score, o.snobjid " \
-    "from snobs_legacy o join exposure e on o.exposureid = e.expnum where e.nite = " + \
-    str(nite) + " and o.ra between " + str(ra - rng) + " and " + str(ra + rng) + " and o.dec between " + \
-    str(dec - rng) + " and " + str(dec + rng) + " order by e.date_obs"
-    return query
-
-def object_query(rock, date, rng):
-    '''
-    Return an SQL query string that looks for wide survey objects near the predicted position of rock on the specified date.
-    
-    rock should be a pyEphem Orbit object.
-    date should be a DateTime, pyEphem date, or
-    floating-point Julian Day.
-    rng specifies the search range in both ra and dec,
-    in (decimal) degrees.
-    Fields returned are date_obs, ra, dec, expnum,
-    exptime, band, ccd, mag_psf, xwin_image, ywin_image,
-    tag.
-    '''
-    pos = rock.predict_pos(date)
-    ra, dec = pos['ra'] * 180/np.pi, pos['dec'] * 180/np.pi
-    nite = get_nite(date)
-    query = "select e.date_obs, o.ra, o.dec, e.expnum, e.exptime, i.band, i.ccd, o.mag_psf, o.xwin_image, o.ywin_image, t.tag from " \
-    "SVA1_FINALCUT o, image i, exposure e, runtag t where i.exposureid = e.id and o.imageid = i.id and i.run = t.run and " \
-    "e.nite = " + str(nite) + " and o.ra between " + str(ra - rng) + " and " + str(ra + rng) + " and o.dec between " + \
-    str(dec - rng) + " and " + str(dec + rng) + " order by e.date_obs;"
-    return query
-
-def field_query(field, band='i'):
-    '''
-    Return an SQL query string that looks for the nights when a given field was visited.
-    
-    This looks for i-band exposures by default.
-    Fields returned are nite, date_obs, expnum, object.
-    '''
-    query = "select distinct e.nite, e.date_obs, e.expnum, e.object from exposure e where e.object like 'DES supernova hex SN-" + \
-    field + "%' and e.band='" + band + "' order by e.date_obs"
-    return query
-
-
 def toDateTime(ISOdate):
     '''
     Transform an ISO date string into a DateTime object.
@@ -246,10 +190,10 @@ def exposure_midpoint(obs, field):
     return ephem.date(obs.date + nstack*ephem.second*obs.exptime/2)
 
 
-#def exposure_parallax():
-#    p={}
-#    for exp in exposures:
-#        dlon, dlat, vlon, vlat = parallax(exp.ra, exp.dec, exp.date)
-#        p[exp.expnum]={'dlon':dlon, 'dlat':dlat, 'vlon':vlon, 'vlat':vlat}
-#    return p
+def wrap_degrees(theta):
+    '''
+    Express angle as -180<theta<180 rather than 0 < theta < 360
+    
+    '''
+    return theta if 0<theta<180 else theta-360
 

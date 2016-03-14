@@ -78,8 +78,8 @@ def DEScands(fields=None):
         {'obsfile':prefix+'cands/VT37/VT37.csv', 'name':'2014 VT37','field':'X3','pltcol':np.array(webcolors.name_to_rgb('mediumorchid'))/255},    #25
         {'obsfile':prefix+'cands/PD312/PD312.csv', 'name':'2015 PD312','field':'X2','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #30
         {'obsfile':prefix+'cands/PF312/PF312.csv', 'name':'2015 PF312','field':'S2','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},         #29
-        {'obsfile':prefix+'cands/Y3/X3-03.csv', 'name':'2015 X3-03','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},          #34
-        {'obsfile':prefix+'cands/Y3/X3-01.csv', 'name':'2015 X3-01','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255}         #39
+        {'obsfile':prefix+'cands/PK312/PK312.csv', 'name':'2015 PK312','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255},          #34
+        {'obsfile':prefix+'cands/QT11/QT11.csv', 'name':'2015 QT11','field':'X3','pltcol':np.array(webcolors.name_to_rgb('indianred'))/255}         #39
 #        {'obsfile':prefix+'cands/Y3/test.csv', 'name':'2015 test','field':'X2','pltcol':np.array(webcolors.name_to_rgb('darkcyan'))/255},         #38
         ]
     rocks = [DESKBO(c['obsfile'], name=c['name'], field=c['field'],pltcolor=c['pltcol']) for c in cands]
