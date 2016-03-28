@@ -7,14 +7,15 @@ import linkutils
 import itertools
 import uuid
 import os.path
-import pickle
+import cPickle as pickle
 from TNOcandidate import TNOcandidate
+from Triplet import Triplet
 from pympler import tracker
 
 
 class TNOfinder(object):
     def __init__(self, objcat, bands = None, exclude_objids=None, date_start=None, look_ahead_nights=30,
-                nominal_distance=60, astrometric_err=0.15, runid=None):
+                nominal_distance=60, astrometric_err=0.15, runid=None, classifier=None):
 
 # objcat is a Catalog (for now) which must contain at least the following columns:
 #     date (as a DateTime object)
@@ -38,7 +39,8 @@ class TNOfinder(object):
         self.candidates = []
         self.linkpoints = []
         self.runid=runid        # identifier for this linking run
-        self.memory_tracker = tracker.SummaryTracker()
+        self.clf = classifier
+#        self.memory_tracker = tracker.SummaryTracker()
  #       self.memory_tracker.print_diff()
 
         
@@ -72,6 +74,49 @@ class TNOfinder(object):
             return 0.7 + (0.95-0.7)/(800-400)*(displacement_arcsec-400)
         else:
             return 0.95
+
+    def getDatePos(self, objid):
+        '''
+        Return date, ra, dec for a given objid
+        '''
+        point = [p for p in self.objects if p.objid==objid][0]
+        ra = point.ra
+        dec = point.dec
+        date = point.date
+        return date, ra, dec
+
+    def vEcliptic(self, id1, id2):
+        '''
+        Compute the components of velocity between two points in ecliptic coords. Units: arcsec/day.
+        '''
+        date1, ra1, dec1 = self.getDatePos(id1)
+        date2, ra2, dec2 = self.getDatePos(id2)
+        ecl1 = ephem.Ecliptic(ephem.Equatorial(ra1, dec1))
+        ecl2 = ephem.Ecliptic(ephem.Equatorial(ra2, dec2))
+        lat1, lon1 = ecl1.lat, ecl1.lon
+        lat2, lon2 = ecl2.lat, ecl2.lon
+        dt = date2-date1
+        dlon = np.mod(np.abs(lon2-lon1), 2*np.pi)
+        if dlon > np.pi: dlon = 2*np.pi - dlon
+        vlon = dlon/dt*np.cos(lat1)*180/np.pi*3600
+        vlat = (lat2-lat1)/dt*180/np.pi*3600
+        return vlon, vlat
+
+    def make_vmap(self, linkmap, report_interval=100):
+        '''
+        Stuffs all the velocities for the points in the link table into a dictionary that can be exported.
+        '''
+        vlist = []
+        npts=len(linkmap.keys())
+        i=0
+        for k in linkmap.keys():
+            if report_interval>0:
+                if i % report_interval == 0: print 'Building velocity table for point ', i, ' of ', npts
+                i+=1
+            v = [self.vEcliptic(k, ind2) for ind2 in linkmap[k]]
+            vlist.append(dict(zip(linkmap[k], v)))
+        return dict(zip(linkmap.keys(), vlist))
+    
 
     def find_linkable(self, report_interval=100):
         linkable_ids = {}
@@ -146,18 +191,35 @@ class TNOfinder(object):
                         if verbose: print 'Point NOT tno_like...'
         return next_obj
 
-    def find_triplets(self, allow_unbound=False, verbose=False, link_table=None):
+    def getTriplets(self, linkmap, everyN=1):
+        alltriplets = []
+        ntriplets = 0
+        npts = 0
+        for ind1 in linkmap.keys():
+            if npts % everyN == 0:
+                next_inds = linkmap[ind1]
+                for ind2 in next_inds:
+                    next_next_inds = linkmap[ind2]
+                    for ind3 in next_next_inds:
+                        triplet = [ind1, ind2, ind3]
+                        alltriplets.append(triplet)
+                        ntriplets +=1
+            npts +=1
+        return alltriplets
+
+    def find_triplets(self, dataframe, allow_unbound=False, verbose=False, link_table=None, vmap_table=None):
         current_nite = 0
-        self.memory_tracker.print_diff()
+#        self.memory_tracker.print_diff()
         good_triplets = []
+        good_ids = []
         if link_table is None:
             if verbose:
                 print '*** TNOfinder stage 1: Building link table ***'
             linkable_ids = self.find_linkable()
-            linkmap = os.path.join('linker_output',str(self.runid)+'_linkmap.pickle')
-            with open(linkmap,'wb') as f:
+            linkmap_out = os.path.join('linker_output',str(self.runid)+'_linkmap.pickle')
+            with open(linkmap_out,'wb') as f:
                 if verbose:
-                    print '   ----> Writing link table to file ', f
+                    print '   ----> Writing link table to file ', linkmap_out
                 pickle.dump(linkable_ids, f)
         else:
             if verbose:
@@ -167,15 +229,35 @@ class TNOfinder(object):
         if verbose:
             print '*** TNOfinder: Building link table complete ***'
             print
-            print '*** TNOfinder stage 2: Searching for triplets ***'
+
+        if vmap_table is None:
+            if verbose:
+                print '*** TNOfinder stage 2: Building velocity map ***'
+            vmap = self.make_vmap(linkable_ids)
+            vmap_out = os.path.join('linker_output',str(self.runid)+'_vmap.pickle')
+            with open(vmap_out,'wb') as fout:
+                if verbose:
+                    print '   ----> Writing velocity map to file ', vmap_out
+                pickle.dump(vmap, fout)
+        else:
+            if verbose:
+                print '*** TNOfinder stage 2: Reading velocity map from file ' + vmap_table + ' ***'
+            with open(vmap_table,'rb') as fv:
+                vmap = pickle.load(fv)
+
+
+        if verbose:
+            print '*** TNOfinder: Building velocity table complete ***'
+            print
+            print '*** TNOfinder stage 3: Finding triplets ***'
         ipts = 0
-        if False:
+        if True:   # this is here in case we only want to build the link and velocity tables. Could handle this scenario through a config flag...
             for obj1 in self.objects:
                 if obj1.nite>current_nite:
                     if verbose:
                         if current_nite>0: 
                             self.report_state(current_nite, good_triplets)
-                            self.memory_tracker.print_diff()
+#                            self.memory_tracker.print_diff()
                         print 'Linking points from nite: ', obj1.nite
                     current_nite = obj1.nite 
                 next_points = [p for p in self.objects if p.objid in linkable_ids[obj1.objid]]
@@ -185,21 +267,26 @@ class TNOfinder(object):
                     for obj3 in next_next_points:
     #                    if verbose: print '-',
                         ipts +=1
-                        triple=Catalog([obj1, obj2, obj3])
-                        orbit = Orbit(triple)
-                        if (orbit.chisq<2 and orbit.ndof==1 and orbit.elements['a']>self.nominal_distance/2):
-                            good_triplets.append(triple)
-                            self.good_triplets.append(triple)
-                            if verbose: 
-                                print 'New good triplet:'
-                                self.report_state(current_nite, [good_triplets[-1]])
-                        if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>self.nominal_distance/2):
-                            good_triplets.append(triple)
-                            self.good_triplets.append(triple)
+                        #
+                        #  Insert triplet-checking here (reject the really bad ones before orbit-fitting):
+                        idlist = [obj1.objid, obj2.objid, obj3.objid]
+                        t = Triplet(idlist, vmap, dataframe, classifier=self.clf)
+                        if t.checkTriplet2() == 1 or self.clf is None:  # good triplet according to machine-learning classifier if we have one
+                            triple=Catalog([obj1, obj2, obj3])
+                            orbit = Orbit(triple)
+                            if (orbit.chisq<5 and orbit.ndof==1 and orbit.elements['a']>self.nominal_distance/2):
+                                good_triplets.append(triple)
+                                self.good_triplets.append(triple)
+#                                if verbose: 
+#                                    print 'New good triplet:'
+#                                    self.report_state(current_nite, [good_triplets[-1]])
+                            if allow_unbound and (orbit.ndof==0 and orbit.elements['a']>self.nominal_distance/2):
+                                good_triplets.append(triple)
+                                self.good_triplets.append(triple)
         if verbose:
             print '*** TNOfinder: Triplet search complete. '
             print
-            print '*** TNOfinder stage 3: merging triplets, building final candidate list ***'
+            print '*** TNOfinder stage 4: merging triplets, building final candidate list ***'
         self.candidates = self.tnocands(good_triplets)
         return good_triplets
 
@@ -254,7 +341,7 @@ class TNOfinder(object):
             orbit, observations = cand[0], cand[1]
             if orbit.chisq/orbit.ndof<2:
                 tc = TNOcandidate(orbit, observations, runid=self.runid, csvname=os.path.join('linker_output',str(self.runid)+'_rolling_'+str(nite)))
-                print 'Chi^2, ndof: ', orbit.chisq, orbit.ndof
+                print 'Chi^2, ndof: ', round(orbit.chisq,3), orbit.ndof
                 print 'Elements: ', orbit.elements
                 print 'Element errors:', orbit.elements_errs
                 print 'Observations: '

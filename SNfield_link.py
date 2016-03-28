@@ -11,6 +11,8 @@ import easyaccess as ea
 from DESKBO import DEScands
 from TNOfinder import TNOfinder
 from TNOcandidate import TNOcandidate
+from sklearn.ensemble import *
+from sklearn.externals import joblib
 import json
 import argparse
 
@@ -54,17 +56,27 @@ def main():
 		link_table = conf["link_table"]
 	except KeyError:
 		link_table = None
+	try:
+		vmap_table = conf["vmap_table"]
+	except KeyError:
+		vmap_table = None
+	try:
+		classifier = conf["classifier"]
+		clf = joblib.load(classifier)
+	except KeyError:
+		clf = None
 	cat = make_cat(infile, link_bands=link_bands, t_eff_min=t_eff_min, exptime_min=exptime_min)
 	for p in cat._points[:10]:
 		print p.date, p.ra, p.dec, p.expnum, p.exptime, p.ccd, p.fakeid
 	print 'Using input file ', infile
 	print 'Linker run id: ', runid
 	print 'Length of input catalog: ', len(cat) 
+	dataframe = pd.read_csv(infile)     # read into pandas dataframe (eventually use this entirely instead of Catalog...)
 	if link_table is not None:
 		print 'Using link table: ', link_table
 	finder = TNOfinder(cat, look_ahead_nights=look_ahead_nights, nominal_distance=nominal_distance, 
-		exclude_objids=None, runid=runid)
-	triplets = finder.find_triplets(verbose=True, link_table=link_table)    # THIS CAN TAKE AWHILE
+		exclude_objids=None, runid=runid, classifier=clf)
+	triplets = finder.find_triplets(dataframe, verbose=True, link_table=link_table, vmap_table=vmap_table)    # THIS CAN TAKE AWHILE
 	cands = finder.tnocands(triplets)
 	for cand in cands:
 		orbit = cand[0]

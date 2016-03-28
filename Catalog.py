@@ -388,7 +388,7 @@ class Catalog(object):
         string = ''
         for pt in self._points:
             string += str(pt.date)+','+str(pt.ra)+','+str(pt.dec)+','+str(pt.expnum)+','+str(pt.exptime)+','+pt.band+','+str(pt.ccd)+','+\
-            str(pt.mag)+','+str(pt.objid)+','+str(pt.ml_score)+'\n'
+            str(round(pt.mag,2))+','+str(pt.objid)+','+str(pt.ml_score)+'\n'
         return string
     
 class Point(object):
