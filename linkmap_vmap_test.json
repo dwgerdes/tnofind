@@ -1,0 +1,8 @@
+{
+	"infile": "wsdiff_catalogs/fakes_only/wsdiff_S82_riz_season1_fakesonly.csv",
+	"runid": "wsdiff_S82_riz_season1_fakesonly",
+	"look_ahead_nights": 30,
+	"nominal_distance": 50,
+	"output_dir": "wsdiff_catalogs/fakes_only/",
+	"Ncpu": 4
+}
